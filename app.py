@@ -102,6 +102,29 @@ Incivilidades = {
    "BP1_4_7": "Robo o venta ilegal de gasolina o diésel (huachicol)",
    "BP1_4_8": "Tomas irregulares de luz (energía eléctrica) o diablitos"
 }
+
+# --- 🆕 Grupo 10: Percepción de conflictos o enfrentamientos que afecten o molesten
+Conflictos_enfrentamientos = {
+   "BP2_2_01": "Ruido por golpes con martillo, uso de taladro, música alta o fiestas",
+   "BP2_2_02": "Peleas u ofensas en el transporte público o con otros automovilistas",
+   "BP2_2_03": "Basura tirada o quemada por vecinos(as) en su jardín, cochera o áreas comunes",
+   "BP2_2_04": "Falta de pago o morosidad en cuotas vecinales o de mantenimiento",
+   "BP2_2_05": "Obstrucción de su cochera, invasión de su cajón de estacionamiento o falta de espacio para estacionarse",
+   "BP2_2_06": "Falta de control de los (las) hijos(as) de los (las) vecinos(as) (por burlas, molestias, daños a su casa por jugar con balones, rayones, golpes, bajar el aire a las llantas de su automóvil, etcétera)",
+   "BP2_2_07": "Disputas familiares por herencias, divorcios, pensiones alimenticias o custodia de los (las) hijos(as)",
+   "BP2_2_08": "Chismes o malos entendidos",
+   "BP2_2_09": "Ladridos, ataques o desechos de mascotas",
+   "BP2_2_10": "Molestias y hostigamiento por borrachos(as), drogadictos(as) o pandillas",
+   "BP2_2_11": "Ruido excesivo u olores desagradables por parte de algún establecimiento comercial",
+   "BP2_2_12": "Conflicto en la compra/consumo de producto/servicio en un establecimiento comercial",
+   "BP2_2_13": "Ambulantaje (puestos, cuidacoches)",
+   "BP2_2_14": "Abuso de policía(s) o de agente(s) de tránsito",
+   "BP2_2_15": "Falta de atención en sus trámites o servicios o prepotencia de un(a) servidor(a) público(a)",
+   "BP2_2_16": "Grafiti o pintas a su casa por alguien que usted identifique",
+   "BP2_2_17": "Otro",
+   "BP2_2_18": "Ninguno"
+
+}
 # --- Mapeo de códigos de ciudad a nombres ---
 mapeo_ciudades = {
     1: "AGUASCALIENTES",
@@ -215,6 +238,7 @@ def cargar_datos_base():
         + list(otro_problema.keys())
         + list(conocimiento_programas.keys())
         + list(Incivilidades.keys())
+        + list(Conflictos_enfrentamientos.keys())
     )
 
     dtype_dict = {
@@ -225,7 +249,7 @@ def cargar_datos_base():
         "FAC_SEL": "float32"
     }
     for col in columnas_necesarias:
-        if col not in ["ANIO", "TRIMESTRE", "CD", "NOM_CD", "FAC_SEL"]:
+        if col not in ["ANIO", "TRIMESTRE", "CD", "NOM_CD", "FAC_SEL"] + ["BP2_1"]:
             dtype_dict[col] = "Int8"
 
     dfs = []
@@ -270,6 +294,7 @@ Explora el **histórico trimestral (2016–2025)** sobre:
 - 🚧 Problemas que enfrenta la ciudad
 - 📢 Conocimiento de programas de prevención contra la violencia/delincuencia
 - 🙅🏻‍♀️ Incivilidades en los alrededores de su vivienda
+- 👊🏻 Conflictos o enfrentamientos
 """)
 
 # --- Selección del tipo de indicador ---
@@ -284,7 +309,8 @@ tipo_variable = st.radio(
         "Efectividad del gobierno para resolver problemas",
         "Problemas que enfrenta la ciudad",
         "Conocimiento de programas de prevención contra la violencia/delincuencia",
-        "Incivilidades en los alrededores de su vivienda"
+        "Incivilidades en los alrededores de su vivienda",
+        "Conflictos o enfrentamientos"
     ]
 )
 
@@ -305,8 +331,10 @@ elif tipo_variable == "Problemas que enfrenta la ciudad":
     opciones = otro_problema
 elif tipo_variable == "Conocimiento de programas de prevención contra la violencia/delincuencia":
     opciones = conocimiento_programas
-else:
+elif tipo_variable == "Incivilidades en los alrededores de su vivienda":
     opciones = Incivilidades
+else:
+    opciones = Conflictos_enfrentamientos
 
 variable_sel = st.selectbox("Selecciona la variable:", list(opciones.values()))
 
@@ -368,6 +396,17 @@ def calcular_porcentaje(df, col, tipo):
             TOTAL_SI=('PESO_SI', 'sum')
         ).reset_index()
         resumen["PORCENTAJE"] = (100 * resumen["TOTAL_SI"] / resumen["TOTAL_VALIDOS"]).round(2)
+
+    elif tipo == "Conflictos o enfrentamientos":
+        df_base = df[df["BP2_2"] == 1].copy()
+        if df_base.empty:
+            return pd.DataFrame(columns=["ANIO", "TRIMESTRE", "PORCENTAJE"])
+        resumen = df_base.groupby(["ANIO", "TRIMESTRE"]).apply(lambda g: pd.Series({
+          "TOTAL_CONFLICTOS": g["FAC_SEL"].sum(),
+          "TOTAL_SI": g.loc[g[col] == 1, "FAC_SEL"].sum()
+        })
+        ).reset_index()
+        resumen["PORCENTAJE"] = (100* resumen["TOTAL_SI"]/ resumen["TOTAL_CONFLICTOS"]).round(2)
 
     else:
         if tipo in ["Percepción de inseguridad", "Cambio de hábitos"]:
